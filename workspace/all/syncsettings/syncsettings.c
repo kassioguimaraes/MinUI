@@ -8,5 +8,8 @@ int main (int argc, char *argv[]) {
 	sleep(1);
 	SetVolume(GetVolume());
 	SetBrightness(GetBrightness());
+    SetContrast(GetContrast());
+    SetColortemp(GetColortemp());
+    SetSaturation(GetSaturation());
 	return 0;
 }

@@ -13,11 +13,15 @@
 #include "msettings.h"
 
 ///////////////////////////////////////
-
+#define DEFAULT_COLORTEMPERATURE 29 // 0-40, 0 = -100, 40 = +100, factory is +45 (29)
 #define SETTINGS_VERSION 2
 typedef struct Settings {
 	int version; // future proofing
 	int brightness;
+	int enhancemode; // 0 or 1
+	int contrast;
+	int colortemperature;
+	int saturation;
 	int headphones;
 	int speaker;
 	int unused[2]; // for future use
@@ -28,6 +32,10 @@ typedef struct Settings {
 static Settings DefaultSettings = {
 	.version = SETTINGS_VERSION,
 	.brightness = 2,
+	.enhancemode = 1,
+	.colortemperature = DEFAULT_COLORTEMPERATURE,
+	.contrast = 0, // 0 to 10
+	.saturation = 0, // 0 to 10
 	.headphones = 4,
 	.speaker = 8,
 	.jack = 0,
@@ -94,7 +102,11 @@ void InitSettings(void) {
 	SetJack(jack);
 	SetHDMI(hdmi);
 	
+	//screen related settings
 	SetBrightness(GetBrightness());
+	SetContrast(settings->contrast);
+	SetColortemp(settings->colortemperature);
+	SetSaturation(settings->saturation);
 	// system("echo $(< " BRIGHTNESS_PATH ")");
 }
 void QuitSettings(void) {
@@ -174,6 +186,7 @@ void SetRawVolume(int val) { // 0 - 100
 int GetJack(void) {
 	return settings->jack;
 }
+
 void SetJack(int value) {
 	// printf("SetJack(%i)\n", value); fflush(stdout);
 	
@@ -183,6 +196,70 @@ void SetJack(int value) {
 	
 	settings->jack = value;
 	SetVolume(GetVolume());
+}
+
+
+void SetContrast(int value) {
+	if (settings->hdmi) return;
+	if (value < 0) value = 0;
+	if (value > 10) value = 10;
+	
+	printf("SetContrast(%i) -> %i\n", value, raw); fflush(stdout);
+	
+	FILE *fd = fopen("/sys/class/disp/disp/attr/enhance_contrast", "w");
+	if (fd) {
+		fprintf(fd, "%i", raw);
+		fclose(fd);
+	}
+	settings->contrast = value;
+	SaveSettings();
+}
+
+void SetRawColortemp(int val) { // 0 - 255
+	 if (settings->hdmi) return;
+	
+	printf("SetRawColortemp(%i)\n", val); fflush(stdout);
+
+	FILE *fd = fopen("/sys/class/disp/disp/attr/color_temperature", "w");
+	if (fd) {
+		fprintf(fd, "%i", val);
+		fclose(fd);
+	}
+}
+
+int ScaleColortemp(int settings_value) {
+    if (settings_value < 0) settings_value = 0;
+    if (settings_value > 20) settings_value = 20;
+    return (settings_value * 10) - 100;
+}
+
+int GetColortemp(void) { // 0-10
+	return settings->colortemperature;
+}
+
+void SetColortemp(int value) {
+	SetRawColortemp(ScaleColortemp(value));
+	settings->colortemperature = value;
+	SaveSettings();
+}
+
+int GetSaturation(void) {
+	return settings->saturation;
+}
+
+void SetSaturation(int value) {
+	if (value < 0) value = 0;
+	if (value > 10) value = 10;
+	
+	printf("setSaturation(%i)\n", value); fflush(stdout);
+	
+	FILE *fd = fopen("/sys/class/disp/disp/attr/enhance_saturation", "w");
+	if (fd) {
+		fprintf(fd, "%i", value);
+		fclose(fd);
+	}
+	settings->saturation = value;
+	SaveSettings();
 }
 
 int GetHDMI(void) {	
